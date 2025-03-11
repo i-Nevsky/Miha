@@ -6,7 +6,7 @@ import telebot
 import time
 from telebot import types
 
-TOKEN = "5380087368:AAGisFjrtxUVGWZpNR--WKXrRl9ZzHFy-88"
+TOKEN = "5380087368:AAE_8MEs80Nb_BEpS3Ph2dpZMZbMfeix6DU"
 bot = telebot.TeleBot(TOKEN)
 
 # Список вопросов (ключ, текст)
