@@ -1,3 +1,6 @@
+import os
+import threading
+from flask import Flask
 import sqlite3
 import telebot
 import time
@@ -105,6 +108,17 @@ def get_all_users():
     users = cursor.fetchall()
     conn.close()
     return users
+
+# Минимальный веб-сервер на Flask для поддержки Render и предотвращения засыпания
+app = Flask(__name__)
+
+@app.route("/ping")
+def ping():
+    return "I'm alive", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 # Хранение состояний пользователей: номер вопроса, ответы и вспомогательные флаги
 user_states = {}
@@ -252,9 +266,16 @@ def handle_contact(message):
 
 create_db()
 
-while True:
-    try:
-        bot.polling(non_stop=True, timeout=60)
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        time.sleep(5)
+# Запуск Flask-сервера в отдельном потоке для предотвращения засыпания
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()
+    while True:
+        try:
+            bot.polling(non_stop=True, timeout=60)
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            time.sleep(5)
