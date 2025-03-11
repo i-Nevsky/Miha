@@ -1,21 +1,18 @@
 import os
-import threading
-from flask import Flask, request, abort
 import sqlite3
+from flask import Flask, request, abort
 import telebot
-import time
 from telebot import types
 
-# Ваш токен
+# Токен вашего бота
 TOKEN = "5380087368:AAE_8MEs80Nb_BEpS3Ph2dpZMZbMfeix6DU"
 bot = telebot.TeleBot(TOKEN)
 
 # Создаем Flask-приложение
 app = Flask(__name__)
-
-# Путь для webhook, используем токен (вы можете изменить на любое другое значение)
 WEBHOOK_URL_PATH = f"/{TOKEN}"
 
+# Маршрут для webhook (Telegram будет отправлять обновления сюда)
 @app.route(WEBHOOK_URL_PATH, methods=["POST"])
 def webhook():
     if request.headers.get("Content-Type", "") == "application/json":
@@ -26,11 +23,12 @@ def webhook():
     else:
         abort(403)
 
+# Корневой маршрут (например, для пинга)
 @app.route("/")
 def index():
     return "Бот работает!", 200
 
-# --- Начало вашего кода для опроса и работы с БД ---
+# --- Начало вашего кода для работы с опросом и БД ---
 
 # Список вопросов (ключ, текст)
 questions = [
@@ -193,11 +191,10 @@ def handle_text(message):
                     markup.add(button)
                     bot.send_message(chat_id, "Пожалуйста, отправьте ваш номер телефона", reply_markup=markup)
                     return  # ждём обработки контакта через handler для 'contact'
-                else:  # Мессенджер выбран
+                else:
                     bot.send_message(chat_id, "Пожалуйста, введите ваш мессенджер (например, @username)")
-                    return  # ждём текстовый ввод
+                    return
         else:
-            # Если уже выбран способ "Мессенджер" и получен текст
             state["answers"]["contact"] = message.text.strip()
             del state["contact_choice"]
             state["index"] += 1
@@ -276,19 +273,19 @@ def handle_contact(message):
             finally:
                 del user_states[chat_id]
 
-# --- Конец вашего основного кода ---
+# --- Конец основного кода ---
 
 create_db()
 
 if __name__ == "__main__":
-    # Устанавливаем webhook (PUBLIC_URL должна быть задана в переменных окружения)
-    PUBLIC_URL = os.environ.get("PUBLIC_URL")  # Например, "https://your-app.onrender.com"
+    # Настраиваем webhook, используя PUBLIC_URL из переменных окружения
+    PUBLIC_URL = os.environ.get("PUBLIC_URL")
     if PUBLIC_URL:
         bot.remove_webhook()
         bot.set_webhook(url=f"{PUBLIC_URL}/{TOKEN}")
     else:
         print("PUBLIC_URL не установлен. Webhook не будет настроен.")
     
-    # Запускаем Flask-сервер (он обрабатывает запросы от Telegram)
+    # Запускаем Flask-сервер. Render передает PORT через переменную окружения.
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
