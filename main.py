@@ -1,14 +1,36 @@
 import os
 import threading
-from flask import Flask
-import sqlite3
+from flask import Flask, request, abort
 import telebot
+import sqlite3
 import time
 from telebot import types
 
+# Ваш токен
 TOKEN = "5380087368:AAE_8MEs80Nb_BEpS3Ph2dpZMZbMfeix6DU"
 bot = telebot.TeleBot(TOKEN)
 
+# Создаем Flask-приложение
+app = Flask(__name__)
+
+# Указываем путь для webhook (например, /webhook)
+WEBHOOK_URL_PATH = f"/{TOKEN}"
+
+@app.route(WEBHOOK_URL_PATH, methods=["POST"])
+def webhook():
+    if request.headers.get("content-type") == "application/json":
+        json_string = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "", 200
+    else:
+        abort(403)
+
+@app.route("/")
+def index():
+    return "Бот работает!", 200
+
+# Ваш существующий код (сохранение данных, опрос и т.д.)
 # Список вопросов (ключ, текст)
 questions = [
     ("name", "Ваше ФИО:"),
@@ -108,17 +130,6 @@ def get_all_users():
     users = cursor.fetchall()
     conn.close()
     return users
-
-# Минимальный веб-сервер на Flask для поддержки Render и предотвращения засыпания
-app = Flask(__name__)
-
-@app.route("/ping")
-def ping():
-    return "I'm alive", 200
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
 
 # Хранение состояний пользователей: номер вопроса, ответы и вспомогательные флаги
 user_states = {}
@@ -266,13 +277,20 @@ def handle_contact(message):
 
 create_db()
 
-# Запуск Flask-сервера в отдельном потоке для предотвращения засыпания
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
 if __name__ == "__main__":
+    # Запускаем Flask-сервер в отдельном потоке (для предотвращения засыпания)
+    def run_flask():
+        port = int(os.environ.get("PORT", 5000))
+        app.run(host="0.0.0.0", port=port)
     threading.Thread(target=run_flask).start()
+    
+    # Устанавливаем webhook для Telegram (используйте публичный URL вашего сервиса Render)
+    PUBLIC_URL = os.environ.get("PUBLIC_URL")  # Например, "https://your-app.onrender.com"
+    if PUBLIC_URL:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{PUBLIC_URL}/{TOKEN}")
+    
+    # Запускаем бота (в режиме polling - вебхуки будут обрабатываться через Flask)
     while True:
         try:
             bot.polling(non_stop=True, timeout=60)
