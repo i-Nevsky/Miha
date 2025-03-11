@@ -1,8 +1,8 @@
 import os
 import threading
 from flask import Flask, request, abort
-import telebot
 import sqlite3
+import telebot
 import time
 from telebot import types
 
@@ -13,12 +13,12 @@ bot = telebot.TeleBot(TOKEN)
 # Создаем Flask-приложение
 app = Flask(__name__)
 
-# Указываем путь для webhook (например, /webhook)
+# Путь для webhook, используем токен (вы можете изменить на любое другое значение)
 WEBHOOK_URL_PATH = f"/{TOKEN}"
 
 @app.route(WEBHOOK_URL_PATH, methods=["POST"])
 def webhook():
-    if request.headers.get("content-type") == "application/json":
+    if request.headers.get("Content-Type", "") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
@@ -30,7 +30,8 @@ def webhook():
 def index():
     return "Бот работает!", 200
 
-# Ваш существующий код (сохранение данных, опрос и т.д.)
+# --- Начало вашего кода для опроса и работы с БД ---
+
 # Список вопросов (ключ, текст)
 questions = [
     ("name", "Ваше ФИО:"),
@@ -275,25 +276,19 @@ def handle_contact(message):
             finally:
                 del user_states[chat_id]
 
+# --- Конец вашего основного кода ---
+
 create_db()
 
 if __name__ == "__main__":
-    # Запускаем Flask-сервер в отдельном потоке (для предотвращения засыпания)
-    def run_flask():
-        port = int(os.environ.get("PORT", 5000))
-        app.run(host="0.0.0.0", port=port)
-    threading.Thread(target=run_flask).start()
-    
-    # Устанавливаем webhook для Telegram (используйте публичный URL вашего сервиса Render)
+    # Устанавливаем webhook (PUBLIC_URL должна быть задана в переменных окружения)
     PUBLIC_URL = os.environ.get("PUBLIC_URL")  # Например, "https://your-app.onrender.com"
     if PUBLIC_URL:
         bot.remove_webhook()
         bot.set_webhook(url=f"{PUBLIC_URL}/{TOKEN}")
+    else:
+        print("PUBLIC_URL не установлен. Webhook не будет настроен.")
     
-    # Запускаем бота (в режиме polling - вебхуки будут обрабатываться через Flask)
-    while True:
-        try:
-            bot.polling(non_stop=True, timeout=60)
-        except Exception as e:
-            print(f"[ERROR] {e}")
-            time.sleep(5)
+    # Запускаем Flask-сервер (он обрабатывает запросы от Telegram)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
